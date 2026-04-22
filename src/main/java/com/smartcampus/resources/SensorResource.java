@@ -58,4 +58,14 @@ public class SensorResource {
 
         return Response.status(Response.Status.CREATED).entity(sensor).build();
     }
+    
+    // Sub-resource Locator
+    @Path("/{sensorId}/readings")
+    public SensorReadingResource getReadingResource(@PathParam("sensorId") int sensorId) {
+        // Validation: Ensure the sensor exists before allowing access to readings
+        if (!DataStore.sensors.containsKey(sensorId)) {
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
+        return new SensorReadingResource(sensorId);
+    }
 }

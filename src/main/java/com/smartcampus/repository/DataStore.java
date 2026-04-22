@@ -10,6 +10,8 @@ package com.smartcampus.repository;
  */
 import com.smartcampus.models.Room;
 import com.smartcampus.models.Sensor;
+import com.smartcampus.models.SensorReading;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 
@@ -37,4 +39,7 @@ public class DataStore {
         // Update the sensor count for Room 1 so Part 2 deletion logic works
         sensorCountPerRoom.put(1, 1);
     }
+
+    // Key: SensorID, Value: List of Readings for that sensor
+    public static Map<Integer, List<SensorReading>> readings = new ConcurrentHashMap<>();
 }
