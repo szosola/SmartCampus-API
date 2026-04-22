@@ -16,6 +16,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
+import com.smartcampus.exceptions.RoomNotEmptyException;
 
 @Path("/rooms")
 public class RoomResource {
@@ -57,10 +58,8 @@ public class RoomResource {
         Integer sensors = DataStore.sensorCountPerRoom.getOrDefault(id, 0);
         
         if (sensors > 0) {
-            // We will improve this with a Custom Exception in Part 5
-            return Response.status(Response.Status.CONFLICT)
-                    .entity("Cannot delete room: It has active sensors.")
-                    .build();
+            // Now throwing custom exception instead of manual Response
+            throw new RoomNotEmptyException("Cannot delete room: It has active hardware.");
         }
 
         if (DataStore.rooms.remove(id) == null) {

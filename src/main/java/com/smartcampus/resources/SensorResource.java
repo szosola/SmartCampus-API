@@ -17,6 +17,7 @@ import javax.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.smartcampus.exceptions.LinkedResourceNotFoundException;
 
 @Path("/sensors")
 public class SensorResource {
@@ -44,10 +45,8 @@ public class SensorResource {
     public Response addSensor(Sensor sensor) {
         // Validation: Does the room exist?
         if (!DataStore.rooms.containsKey(sensor.getRoomId())) {
-            // We will use a custom ExceptionMapper for this in Part 5
-            return Response.status(422) // Unprocessable Entity
-                    .entity("Error: Room ID " + sensor.getRoomId() + " does not exist.")
-                    .build();
+            // Now throwing custom exception for 422 error
+            throw new LinkedResourceNotFoundException("Error: Room ID " + sensor.getRoomId() + " does not exist.");
         }
 
         DataStore.sensors.put(sensor.getId(), sensor);

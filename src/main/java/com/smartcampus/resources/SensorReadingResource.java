@@ -17,6 +17,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
+import com.smartcampus.exceptions.SensorUnavailableException;
 
 public class SensorReadingResource {
     
@@ -39,13 +40,20 @@ public class SensorReadingResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response addReading(SensorReading reading) {
+        Sensor parentSensor = DataStore.sensors.get(sensorId);
+        
+        // Logic for Part 5 (403 Forbidden)
+        // Checks if the sensor is in maintenance before accepting readings
+        if (parentSensor != null && "MAINTENANCE".equalsIgnoreCase(parentSensor.getStatus())) {
+            throw new SensorUnavailableException("Sensor " + sensorId + " is under maintenance and cannot accept readings.");
+        }
+        
         // 1. Save the reading
         List<SensorReading> sensorReadings = DataStore.readings.getOrDefault(sensorId, new ArrayList<>());
         sensorReadings.add(reading);
         DataStore.readings.put(sensorId, sensorReadings);
 
         // 2. LOGIC: Update the parent sensor's currentValue automatically
-        Sensor parentSensor = DataStore.sensors.get(sensorId);
         if (parentSensor != null) {
             parentSensor.setCurrentValue(reading.getValue());
         }
