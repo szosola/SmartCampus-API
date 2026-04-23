@@ -4,10 +4,25 @@
 This RESTful API is built using **JAX-RS (javax)** and deployed on **Tomcat 9**. It manages university resources (Rooms and Sensors) using in-memory data structures, adhering to strict REST principles.
 
 ## Setup & Execution
-1. **Build**: Use `mvn clean install` (requires JDK 11 or 17).
-2. **Deployment**: Deploy the generated `SmartCampus.war` to the Tomcat `webapps` folder.
-3. **Base URL**: `http://localhost:8080/SmartCampus/api/v1`
 
+### Prerequisites
+* Java JDK 11 or 17
+* Apache Maven 3.6+
+* Apache Tomcat 9.0
+
+### Step-by-Step Build and Launch
+1.  **Clone the Repository**: Download or clone the source code to your local machine.
+2.  **Compile and Package**: Open a terminal in the project root and run:
+    ```bash
+    mvn clean package
+    ```
+3.  **Locate Artifact**: Navigate to the `target/` directory and find `SmartCampus.war`.
+4.  **Deploy to Tomcat**: 
+    * Copy `SmartCampus.war` to your Tomcat installation's `webapps` folder.
+    * Start Tomcat using `bin/startup.sh` (Linux/Mac) or `bin/startup.bat` (Windows).
+5.  **Verify Access**: Open your browser or API client and navigate to:
+    `http://localhost:8080/SmartCampus/api/v1`
+    
 ---
 
 ## PART 1: Service Architecture & Setup
@@ -68,17 +83,95 @@ While the *response code* changes, the **state of the server** remains the same 
 
 ---
 
-## PART 5: Error Handling & Logging (Work in Progress)
-*This section will be updated upon completion of the custom ExceptionMappers and Filters.*
+## PART 5: Advanced Error Handling, Exception Mapping & Logging
+
+### 5.1 Semantics of HTTP 422 vs. 404
+**Question:** Why is HTTP 422 (Unprocessable Entity) often considered more semantically accurate than a standard 404 when the issue is a missing reference inside a valid JSON payload?
+
+**Answer:** A **404 Not Found** indicates that the *URL path* itself does not exist. In the case of posting a sensor to a non-existent room, the endpoint (`/sensors`) exists and the JSON payload is syntactically correct, but it contains a **logical error** (a broken foreign key). **HTTP 422** is more accurate because it signals that the server understands the content type and the syntax of the request is correct, but it cannot process the contained instructions due to semantic errors (the referenced Room ID is missing).
+
+### 5.2 Cybersecurity Risks of Stack Traces
+**Question:** From a cybersecurity standpoint, explain the risks associated with exposing internal Java stack traces to external API consumers. What specific information could an attacker gather from such a trace?
+
+**Answer:** Exposing stack traces is a significant **Information Leakage** vulnerability. An attacker can gather:
+* **Internal Path Logic:** The exact package structure and class names (e.g., `com.smartcampus.repository.DataStore`).
+* **Version Info:** Version numbers of the server (Tomcat 9.x) or libraries (Jersey 2.34), allowing them to search for known CVEs (vulnerabilities).
+* **Database/Code Structure:** Hints about the underlying database schema or logic flaws that could be exploited for injection attacks.
+The `GlobalExceptionMapper` mitigates this by "scrubbing" the error and returning a generic, safe `ErrorMessage` object.
+
+### 5.3 Cross-Cutting Concerns: JAX-RS Filters vs. Manual Logging
+**Question:** Why is it advantageous to use JAX-RS filters for cross-cutting concerns like logging, rather than manually inserting Logger.info() statements inside every single resource method?
+
+**Answer:** Using Filters implements the **DRY (Don't Repeat Yourself)** principle and handles **Cross-Cutting Concerns** centrally.
+* **Maintainability:** If I need to change the logging format (e.g., adding timestamps or unique Request IDs), I only change one class (`LoggingFilter`) instead of updating dozens of resource methods.
+* **Consistency:** A filter guarantees that *every* request and response is logged, even if a developer forgets to add a log statement to a new endpoint.
+* **Decoupling:** It keeps the business logic in the Resource classes "clean" and focused purely on data processing rather than infrastructure concerns.
 
 ---
 
-## Sample API Usage
-| Action | Method | URL |
+## Status Codes Implemented
+| Code | Meaning | Scenario in this Project |
 | :--- | :--- | :--- |
-| API Discovery | GET | `/api/v1/` |
-| List All Rooms | GET | `/api/v1/rooms` |
-| Get Specific Room | GET | `/api/v1/rooms/{id}` |
-| List All Sensors | GET | `/api/v1/sensors` |
-| Filter Sensors | GET | `/api/v1/sensors?type=CO2` |
-| Sensor Readings | GET | `/api/v1/sensors/{id}/readings` |
+| **200** | OK | Successful GET requests. |
+| **201** | Created | Successful POST (Room, Sensor, or Reading). |
+| **204** | No Content | Successful DELETE of a Room. |
+| **403** | Forbidden | POSTing a reading to a sensor in 'MAINTENANCE'. |
+| **404** | Not Found | Requesting a Room/Sensor ID that doesn't exist. |
+| **409** | Conflict | Deleting a Room that still has active Sensors. |
+| **422** | Unprocessable | POSTing a Sensor to a Room ID that doesn't exist. |
+| **500** | Server Error | Catch-all for unexpected code crashes. |
+
+---
+
+## Sample API Usage (cURL Commands)
+
+To interact with the API, ensure Tomcat is running and use the following commands:
+
+### 1. API Discovery (HATEOAS)
+Retrieves the API metadata, contact information, and resource links.
+
+```bash
+curl -X GET http://localhost:8080/SmartCampus/api/v1/
+```
+
+### 2. Add a New Room
+Creates a new room resource.
+
+```Bash
+curl -X POST http://localhost:8080/SmartCampus/api/v1/rooms \
+     -H "Content-Type: application/json" \
+     -d '{"id": 3, "name": "Server Room", "capacity": 5}'
+```
+
+### 3. Add a Sensor (Dependency Validation)
+Links a new sensor to an existing room. (Note: If the roomId does not exist, this will trigger the 422 Unprocessable Entity error).
+
+```Bash
+curl -X POST http://localhost:8080/SmartCampus/api/v1/sensors \
+     -H "Content-Type: application/json" \
+     -d '{"id": 105, "type": "CO2", "currentValue": 400.0, "roomId": 1}'
+```
+
+### 4. POST a Reading (State Constraint Test)
+Attempts to add a reading to Sensor 102. Since Sensor 102 is marked as 'MAINTENANCE' in the DataStore, this will trigger the custom 403 Forbidden response.
+
+```Bash
+curl -X POST http://localhost:8080/SmartCampus/api/v1/sensors/102/readings \
+     -H "Content-Type: application/json" \
+     -d '{"id": 500, "value": 25.5}'
+```
+
+### 5. Filter Sensors by Type
+Demonstrates the use of query parameters to filter the sensor collection.
+
+```Bash
+curl -X GET "http://localhost:8080/SmartCampus/api/v1/sensors?type=Temperature"
+```
+
+### 6. Delete a Room (Resource Conflict Test)
+Attempts to delete Room 1. Because Room 1 has sensors assigned to it in the DataStore, this triggers the 409 Conflict error.
+
+```Bash
+curl -X DELETE http://localhost:8080/SmartCampus/api/v1/rooms/1
+```
+
