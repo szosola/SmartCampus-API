@@ -68,17 +68,52 @@ While the *response code* changes, the **state of the server** remains the same 
 
 ---
 
-## PART 5: Error Handling & Logging (Work in Progress)
-*This section will be updated upon completion of the custom ExceptionMappers and Filters.*
+## PART 5: Advanced Error Handling, Exception Mapping & Logging
+
+### 5.1 Semantics of HTTP 422 vs. 404
+**Question:** Why is HTTP 422 (Unprocessable Entity) often considered more semantically accurate than a standard 404 when the issue is a missing reference inside a valid JSON payload?
+
+**Answer:** A **404 Not Found** indicates that the *URL path* itself does not exist. In the case of posting a sensor to a non-existent room, the endpoint (`/sensors`) exists and the JSON payload is syntactically correct, but it contains a **logical error** (a broken foreign key). **HTTP 422** is more accurate because it signals that the server understands the content type and the syntax of the request is correct, but it cannot process the contained instructions due to semantic errors (the referenced Room ID is missing).
+
+### 5.2 Cybersecurity Risks of Stack Traces
+**Question:** From a cybersecurity standpoint, explain the risks associated with exposing internal Java stack traces to external API consumers. What specific information could an attacker gather from such a trace?
+
+**Answer:** Exposing stack traces is a significant **Information Leakage** vulnerability. An attacker can gather:
+* **Internal Path Logic:** The exact package structure and class names (e.g., `com.smartcampus.repository.DataStore`).
+* **Version Info:** Version numbers of the server (Tomcat 9.x) or libraries (Jersey 2.34), allowing them to search for known CVEs (vulnerabilities).
+* **Database/Code Structure:** Hints about the underlying database schema or logic flaws that could be exploited for injection attacks.
+The `GlobalExceptionMapper` mitigates this by "scrubbing" the error and returning a generic, safe `ErrorMessage` object.
+
+### 5.3 Cross-Cutting Concerns: JAX-RS Filters vs. Manual Logging
+**Question:** Why is it advantageous to use JAX-RS filters for cross-cutting concerns like logging, rather than manually inserting Logger.info() statements inside every single resource method?
+
+**Answer:** Using Filters implements the **DRY (Don't Repeat Yourself)** principle and handles **Cross-Cutting Concerns** centrally.
+* **Maintainability:** If I need to change the logging format (e.g., adding timestamps or unique Request IDs), I only change one class (`LoggingFilter`) instead of updating dozens of resource methods.
+* **Consistency:** A filter guarantees that *every* request and response is logged, even if a developer forgets to add a log statement to a new endpoint.
+* **Decoupling:** It keeps the business logic in the Resource classes "clean" and focused purely on data processing rather than infrastructure concerns.
+
+---
+
+## Status Codes Implemented
+| Code | Meaning | Scenario in this Project |
+| :--- | :--- | :--- |
+| **200** | OK | Successful GET requests. |
+| **201** | Created | Successful POST (Room, Sensor, or Reading). |
+| **204** | No Content | Successful DELETE of a Room. |
+| **403** | Forbidden | POSTing a reading to a sensor in 'MAINTENANCE'. |
+| **404** | Not Found | Requesting a Room/Sensor ID that doesn't exist. |
+| **409** | Conflict | Deleting a Room that still has active Sensors. |
+| **422** | Unprocessable | POSTing a Sensor to a Room ID that doesn't exist. |
+| **500** | Server Error | Catch-all for unexpected code crashes. |
 
 ---
 
 ## Sample API Usage
-| Action | Method | URL |
-| :--- | :--- | :--- |
-| API Discovery | GET | `/api/v1/` |
-| List All Rooms | GET | `/api/v1/rooms` |
-| Get Specific Room | GET | `/api/v1/rooms/{id}` |
-| List All Sensors | GET | `/api/v1/sensors` |
-| Filter Sensors | GET | `/api/v1/sensors?type=CO2` |
-| Sensor Readings | GET | `/api/v1/sensors/{id}/readings` |
+| Action | Method | URL | Expected Response |
+| :--- | :--- | :--- | :--- |
+| Discovery | GET | `/api/v1/` | JSON API Metadata |
+| Add Room | POST | `/api/v1/rooms` | 201 Created |
+| Add Sensor | POST | `/api/v1/sensors` | 201 Created |
+| Add Reading| POST | `/api/v1/sensors/101/readings` | 201 Created |
+| Test 403 | POST | `/api/v1/sensors/102/readings` | 403 Forbidden |
+| Test 409 | DELETE| `/api/v1/rooms/1` | 409 Conflict |
