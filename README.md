@@ -4,10 +4,25 @@
 This RESTful API is built using **JAX-RS (javax)** and deployed on **Tomcat 9**. It manages university resources (Rooms and Sensors) using in-memory data structures, adhering to strict REST principles.
 
 ## Setup & Execution
-1. **Build**: Use `mvn clean install` (requires JDK 11 or 17).
-2. **Deployment**: Deploy the generated `SmartCampus.war` to the Tomcat `webapps` folder.
-3. **Base URL**: `http://localhost:8080/SmartCampus/api/v1`
 
+### Prerequisites
+* Java JDK 11 or 17
+* Apache Maven 3.6+
+* Apache Tomcat 9.0
+
+### Step-by-Step Build and Launch
+1.  **Clone the Repository**: Download or clone the source code to your local machine.
+2.  **Compile and Package**: Open a terminal in the project root and run:
+    ```bash
+    mvn clean package
+    ```
+3.  **Locate Artifact**: Navigate to the `target/` directory and find `SmartCampus.war`.
+4.  **Deploy to Tomcat**: 
+    * Copy `SmartCampus.war` to your Tomcat installation's `webapps` folder.
+    * Start Tomcat using `bin/startup.sh` (Linux/Mac) or `bin/startup.bat` (Windows).
+5.  **Verify Access**: Open your browser or API client and navigate to:
+    `http://localhost:8080/SmartCampus/api/v1`
+    
 ---
 
 ## PART 1: Service Architecture & Setup
@@ -108,12 +123,55 @@ The `GlobalExceptionMapper` mitigates this by "scrubbing" the error and returnin
 
 ---
 
-## Sample API Usage
-| Action | Method | URL | Expected Response |
-| :--- | :--- | :--- | :--- |
-| Discovery | GET | `/api/v1/` | JSON API Metadata |
-| Add Room | POST | `/api/v1/rooms` | 201 Created |
-| Add Sensor | POST | `/api/v1/sensors` | 201 Created |
-| Add Reading| POST | `/api/v1/sensors/101/readings` | 201 Created |
-| Test 403 | POST | `/api/v1/sensors/102/readings` | 403 Forbidden |
-| Test 409 | DELETE| `/api/v1/rooms/1` | 409 Conflict |
+## Sample API Usage (cURL Commands)
+
+To interact with the API, ensure Tomcat is running and use the following commands:
+
+### 1. API Discovery (HATEOAS)
+Retrieves the API metadata, contact information, and resource links.
+
+```bash
+curl -X GET http://localhost:8080/SmartCampus/api/v1/
+```
+
+### 2. Add a New Room
+Creates a new room resource.
+
+```Bash
+curl -X POST http://localhost:8080/SmartCampus/api/v1/rooms \
+     -H "Content-Type: application/json" \
+     -d '{"id": 3, "name": "Server Room", "capacity": 5}'
+```
+
+### 3. Add a Sensor (Dependency Validation)
+Links a new sensor to an existing room. (Note: If the roomId does not exist, this will trigger the 422 Unprocessable Entity error).
+
+```Bash
+curl -X POST http://localhost:8080/SmartCampus/api/v1/sensors \
+     -H "Content-Type: application/json" \
+     -d '{"id": 105, "type": "CO2", "currentValue": 400.0, "roomId": 1}'
+```
+
+### 4. POST a Reading (State Constraint Test)
+Attempts to add a reading to Sensor 102. Since Sensor 102 is marked as 'MAINTENANCE' in the DataStore, this will trigger the custom 403 Forbidden response.
+
+```Bash
+curl -X POST http://localhost:8080/SmartCampus/api/v1/sensors/102/readings \
+     -H "Content-Type: application/json" \
+     -d '{"id": 500, "value": 25.5}'
+```
+
+### 5. Filter Sensors by Type
+Demonstrates the use of query parameters to filter the sensor collection.
+
+```Bash
+curl -X GET "http://localhost:8080/SmartCampus/api/v1/sensors?type=Temperature"
+```
+
+### 6. Delete a Room (Resource Conflict Test)
+Attempts to delete Room 1. Because Room 1 has sensors assigned to it in the DataStore, this triggers the 409 Conflict error.
+
+```Bash
+curl -X DELETE http://localhost:8080/SmartCampus/api/v1/rooms/1
+```
+
