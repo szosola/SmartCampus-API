@@ -22,6 +22,12 @@ public class DataStore {
 
     // We will use this in Part 3 to check if a room has sensors
     public static Map<Integer, Integer> sensorCountPerRoom = new ConcurrentHashMap<>();
+    
+    // Map to store Sensors: Key is Sensor ID, Value is Sensor object
+    public static Map<Integer, Sensor> sensors = new ConcurrentHashMap<>();
+    
+    // Key: SensorID, Value: List of Readings for that sensor
+    public static Map<Integer, List<SensorReading>> readings = new ConcurrentHashMap<>();
 
     static {
         // Adding some sample data for testing
@@ -29,17 +35,14 @@ public class DataStore {
         rooms.put(2, new Room(2, "Lecture Hall A", 100));
     }
 
-    // Map to store Sensors: Key is Sensor ID, Value is Sensor object
-    public static Map<Integer, Sensor> sensors = new ConcurrentHashMap<>();
-
     static {
-        // Initial sample data
-        sensors.put(101, new Sensor(101, "CO2", 450.0, 1));
+        // Sensor 101 is ACTIVE
+        sensors.put(101, new Sensor(101, "CO2", 450.0, 1, "ACTIVE"));
+    
+        // Sensor 102 is in MAINTENANCE (To test the 403 Forbidden Error)
+        sensors.put(102, new Sensor(102, "Temperature", 22.5, 1, "MAINTENANCE"));
 
-        // Update the sensor count for Room 1 so Part 2 deletion logic works
-        sensorCountPerRoom.put(1, 1);
+        sensorCountPerRoom.put(1, 2);
     }
 
-    // Key: SensorID, Value: List of Readings for that sensor
-    public static Map<Integer, List<SensorReading>> readings = new ConcurrentHashMap<>();
 }

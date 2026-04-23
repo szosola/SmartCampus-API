@@ -17,14 +17,27 @@ public class Sensor {
     private String type; // e.g., "CO2", "Temperature"
     private double currentValue;
     private int roomId; // Foreign key-like reference to the Room
+    private String status;
 
-    public Sensor() {}
+    public Sensor() {
+        this.status = "ACTIVE"; // Default status
+    }
 
     public Sensor(int id, String type, double currentValue, int roomId) {
         this.id = id;
         this.type = type;
         this.currentValue = currentValue;
         this.roomId = roomId;
+        this.status = "ACTIVE";
+    }
+    
+    // Constructor with 5 parameters (for Part 5 testing)
+    public Sensor(int id, String type, double currentValue, int roomId, String status) {
+        this.id = id;
+        this.type = type;
+        this.currentValue = currentValue;
+        this.roomId = roomId;
+        this.status = status;
     }
 
     // Getters and Setters
@@ -36,4 +49,6 @@ public class Sensor {
     public void setCurrentValue(double currentValue) { this.currentValue = currentValue; }
     public int getRoomId() { return roomId; }
     public void setRoomId(int roomId) { this.roomId = roomId; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }
